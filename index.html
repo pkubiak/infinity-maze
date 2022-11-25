@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body,html{width:100%;height:100%}
+    #tiles_output{zoom:4; image-rendering: pixelated;display:none}
+    img{display: none;}
+    #output{zoom:4; image-rendering: pixelated;background:#666;margin-left:-36px;margin-top:-36px;}
+</style>    
+</head>
+<body onload="init(54, 35)" style="margin:0;overflow:hidden;">
+    <canvas id="output"></canvas><br><br>
+    <img src="tiles.png" id="tiles">
+    <canvas id="tiles_output"></canvas>
+
+<script>
+const canvas = document.querySelector('#output'), ctx = canvas.getContext('2d');
+let tiles, tiles_ctx;
+
+const connections = [
+    ["ne","ws"], ["nw","e","s"],["ns","e","w"],
+    ["ns","ew"], ["nes","w"], ["n","e","w","s"],
+    ["nsew"], ["nsew"], ["nsew"],
+    ["nsew"], ["n","sew"], ["ns","ew"], 
+    ["nw","e","s"], ["nsw","e"], ["ns","ew"],
+    ["ns","ew"], ["ns","ew"], ["n","e","s","w"],
+    ["ns","ew"], ["ns","ew"],["n","e","s","w"],
+    ["n","e","s","w"], ["nesw"], ["n", "e", "s", "w"]
+]
+const rotations = [2,4,2,2,4,1,1,1,1,1,4,2,4,4,4,4,4,2,2,2,4,4,4,4];
+const connections_all = [];
+
+const dirs2 = {'e': [1,0], 'w': [-1,0], 'n':[0,-1], 's': [0,1]};
+const pairs = {"e":"w", "w":"e", "n":"s", "s":"n"};
+const directions = "nesw";
+
+function init(w, h){
+    generate_rotated_tiles();
+
+    let map = generate_map(w, h);
+    // draw(w, h, map);
+}
+
+function generate_rotated_tiles() {
+    const tiles_img = document.querySelector('#tiles');
+    const n = Math.floor((tiles_img.width + 1)/10);
+
+    let tiles_input = document.createElement('canvas');
+    tiles_input.width = tiles_img.width;
+    tiles_input.height = tiles_img.height;
+    tiles_input = tiles_input.getContext('2d');
+    tiles_input.drawImage(tiles_img,0,0);
+
+    tiles = document.querySelector("#tiles_output");//createElement('canvas');
+    tiles.width = 9*4*n; tiles.height = 9;
+    tiles_ctx = tiles.getContext('2d');
+    
+    let rot_fn = [
+        (x,y)=>[x,y], (x,y)=>[8-y,x], (x,y)=>[8-x,8-y], (x,y)=>[y,8-x] 
+    ]
+
+    console.log(">>", n);
+    let ile=0;
+    for(let i=0;i<n;i++)
+        for(let rot=0;rot<rotations[i];rot++) {
+            for(let dy=0;dy<9;dy++)
+                for(let dx=0;dx<9;dx++) {
+                    let pixel = tiles_input.getImageData(10*i+dx,dy,1,1);
+
+                    let [x, y] = rot_fn[rot](dx, dy);
+                    x += 9*ile;
+                    tiles_ctx.putImageData(pixel, x, y);
+                }
+
+            let conn = connections[i].map(i => i.split("").map(c => directions[(directions.indexOf(c)+rot)%4]).join(""));
+            connections_all.push(conn);
+            ile += 1;
+        }
+}
+
+
+function draw(w, h, map) {
+    console.log(connections_all.length);
+    canvas.width = 9*w;
+    canvas.height = 9*h;
+    for(let y=0;y<h;y++)
+        for(let x=0;x<w;x++) {
+            let t = map[`${x}_${y}`];
+            ctx.drawImage(tiles, t*9, 0, 9, 9, 9*x, 9*y, 9, 9);
+        }
+}
+
+
+function dfs(map, w, h, x0, y0) {
+    let q = [`${x0}_${y0}_${x0==0?'e':'w'}`];
+    let visited = {};
+    visited[q[0]] = true;
+
+    function tryVisit(x, y, d) {
+        let k = `${x}_${y}_${d}`;
+        if(visited[k])return;
+        if(0<=x&&x<w&&0<=y&&y<h) {
+            visited[k] = true;
+            q.push(k);
+        }
+    }
+
+    while(q.length > 0) {
+        let [x, y, d] = q.pop().split('_');
+        x = parseInt(x); y = parseInt(y);
+
+        let conn = connections_all[map[`${x}_${y}`]];
+        for(let g of conn)
+            if(g.indexOf(d) != -1) {
+                for(let d of g) {
+                    tryVisit(x + dirs2[d][0], y + dirs2[d][1], pairs[d]);
+                }
+            }
+    }
+    console.log(Object.keys(visited).length, w*h*4-2*w-2*h);
+
+    for(let d of "nsew") {
+        let x1 = x0 + dirs2[d][0], y1 = y0 + dirs2[d][1];
+        if(0<=x1 && x1 <w && 0<=y1 && y1 < h) {
+            if(visited[`${x0}_${y0}_${d}`] !== true)
+                return false
+        }
+    }
+    return true
+}
+
+function generate_map(w, h) {
+    let map = {};
+
+    let items = []
+    for(let i=0;i<connections_all.length;i++)
+        for(let j=0;j<connections_all[i].length;j++)
+            items.push(i);
+    console.log(items, items.length)
+
+    for(let y=0;y<h;y++)
+        for(let x=0;x<w;x++) {
+            map[`${x}_${y}`] = items[Math.floor(Math.random()*items.length)];
+        }
+
+    /*for(let i=0;i<5*10000;i++) {
+        let x = Math.floor(Math.random()*w), y = Math.floor(Math.random()*h);
+        let d = Math.floor(Math.random() * 4);
+        let x2 = x+offset[d][0], y2 = y+offset[d][1];
+        if(!(0<=x2 && x2<w && 0<=y2 && y2<h))continue;
+        let e1 = ends[map[`${x}_${y}`]], e2 = ends[map[`${x2}_${y2}`]];
+        if(e1.indexOf(pairs[d][0])!=-1 && e2.indexOf(pairs[d][1]) != -1) {
+            map[`${x}_${y}`] = Math.floor(Math.random()*15);
+            console.log('replace', x, y);
+        }
+    }*/
+    // return map;
+
+    let count = 0;
+    function reduce_cycles() {
+        count += 1;
+
+        for(let i=0;i<100;i++) {
+            let x = Math.floor(Math.random()*w), y = Math.floor(Math.random()*h);
+            if(x==0||x==w-1||y==0||y==h-1)continue;
+            
+            let ok = dfs(map, w, h, x, y); // All four exits are connected
+
+            // Add some randomness (5%)
+            if(ok && Math.random()>0.05)
+                continue;
+            map[`${x}_${y}`] = items[Math.floor(Math.random()*items.length)];
+            // }
+        }
+
+        draw(w, h, map);
+        
+        // if(count < 100)
+        // setTimeout(reduce_cycles, 100);
+    };
+
+    setInterval(reduce_cycles, 100);
+
+    return map;
+}
+
+</script>
+</body>
+</html>
