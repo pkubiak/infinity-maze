@@ -123,38 +123,22 @@ function dfs(map, w, h, x0, y0) {
         let x1 = x0 + dirs2[d][0], y1 = y0 + dirs2[d][1];
         if(0<=x1 && x1 <w && 0<=y1 && y1 < h) {
             if(visited[`${x0}_${y0}_${d}`] !== true)
-                return false
+                return 0;
         }
     }
-    return true
+    return Object.keys(visited).length;
+}
+
+function set_random_tile(map, x, y) {
+    map[`${x}_${y}`] = Math.floor(Math.random()*connections_all.length);
 }
 
 function generate_map(w, h) {
     let map = {};
 
-    let items = []
-    for(let i=0;i<connections_all.length;i++)
-        for(let j=0;j<connections_all[i].length;j++)
-            items.push(i);
-    console.log(items, items.length)
-
     for(let y=0;y<h;y++)
-        for(let x=0;x<w;x++) {
-            map[`${x}_${y}`] = items[Math.floor(Math.random()*items.length)];
-        }
-
-    /*for(let i=0;i<5*10000;i++) {
-        let x = Math.floor(Math.random()*w), y = Math.floor(Math.random()*h);
-        let d = Math.floor(Math.random() * 4);
-        let x2 = x+offset[d][0], y2 = y+offset[d][1];
-        if(!(0<=x2 && x2<w && 0<=y2 && y2<h))continue;
-        let e1 = ends[map[`${x}_${y}`]], e2 = ends[map[`${x2}_${y2}`]];
-        if(e1.indexOf(pairs[d][0])!=-1 && e2.indexOf(pairs[d][1]) != -1) {
-            map[`${x}_${y}`] = Math.floor(Math.random()*15);
-            console.log('replace', x, y);
-        }
-    }*/
-    // return map;
+        for(let x=0;x<w;x++)
+            set_random_tile(map, x, y);
 
     let count = 0;
     function reduce_cycles() {
@@ -169,14 +153,10 @@ function generate_map(w, h) {
             // Add some randomness (5%)
             if(ok && Math.random()>0.05)
                 continue;
-            map[`${x}_${y}`] = items[Math.floor(Math.random()*items.length)];
-            // }
+            set_random_tile(map, x, y);
         }
 
         draw(w, h, map);
-        
-        // if(count < 100)
-        // setTimeout(reduce_cycles, 100);
     };
 
     setInterval(reduce_cycles, 100);
